@@ -28,4 +28,4 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           GREPO_WORLD: ${{ secrets.GREPO_WORLD }}
-        run: node tracker.js
+        run: node bot.js
