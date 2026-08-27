@@ -1,0 +1,31 @@
+name: grepo-act tracker
+
+on:
+  schedule:
+    # Runs at minute 5 of every hour
+    - cron: '5 * * * *'
+
+  # Allows manual trigger from GitHub UI to test 
+  workflow_dispatch: 
+
+jobs:
+  track:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Run Tracker
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GREPO_WORLD: ${{ secrets.GREPO_WORLD }}
+        run: node tracker.js
