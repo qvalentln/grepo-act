@@ -4,7 +4,10 @@ import zlib from 'zlib';
 import pg from 'pg';
 
 const { Pool } = pg;
-const db = new Pool({ connectionString: process.env.DATABASE_URL });
+const db = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
 
 async function fetchGrepoData(url) {
   const res = await axios.get(url, { responseType: 'arraybuffer' });
