@@ -26,14 +26,14 @@ async function run() {
   const baseUrl = `https://${worldId}.grepolis.com/data`;
 
   console.log(`Preluare date pentru lumea: ${worldId}...`);
-  const [playersRaw, attRaw, defRaw, allyRaw] = await Promise.all([
+  const [playersRawUnfiltered, attRaw, defRaw, allyRaw] = await Promise.all([
     fetchGrepoData(`${baseUrl}/players.txt.gz`),
     fetchGrepoData(`${baseUrl}/player_kills_att.txt.gz`),
     fetchGrepoData(`${baseUrl}/player_kills_def.txt.gz`),
     fetchGrepoData(`${baseUrl}/alliances.txt.gz`)
   ]);
 
-
+  const playersRaw = playersRawUnfiltered.filter(row => (parseInt(row[3], 10) || 0) > 900);
   const alliances = new Map();
   const allyQuery = `
     INSERT INTO alliances (alliance_id, name)
