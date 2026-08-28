@@ -4,6 +4,8 @@ import zlib from 'zlib';
 import pg from 'pg';
 
 const { Pool } = pg;
+
+
 const db = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
@@ -18,7 +20,7 @@ async function fetchGrepoData(url) {
 async function run() {
   const worldId = process.env.GREPO_WORLD;
   if (!worldId) {
-    throw new Error('GREPO_WORLD lipsește din .env');
+    throw new Error('GREPO_WORLD lipseste');
   }
 
   const baseUrl = `https://${worldId}.grepolis.com/data`;
@@ -50,9 +52,11 @@ async function run() {
     })
   );
 
+ 
   const abpMap = new Map(attRaw.map(a => [parseInt(a[1], 10), parseInt(a[2], 10) || 0]));
   const dbpMap = new Map(defRaw.map(d => [parseInt(d[1], 10), parseInt(d[2], 10) || 0]));
 
+  
   const playerQuery = `
     INSERT INTO players (player_id, name, alliance_id, alliance_name, points, abp, dbp, inactive_hours, was_inactive, last_updated)
     VALUES ($1, $2, $3, $4, $5, $6, $7, 0, FALSE, NOW())
@@ -79,8 +83,7 @@ async function run() {
         alliance_name, 
         points, 
         inactive_hours, 
-        was_inactive, 
-        (EXCLUDED.dbp - players.dbp) AS dbp_diff;
+        was_inactive;
   `;
 
   const alerts = [];
@@ -119,14 +122,13 @@ async function run() {
       const allyName = state.alliance_name ? `(${state.alliance_name})` : '';
 
       if (state.was_inactive) {
-        alerts.push(`⏰ **${state.name}** ${allyName} · points or ABP moving again after ${state.inactive_hours} hours · ${state.points.toLocaleString()} pts`);
+        alerts.push(`⏰ **${state.name}** ${allyName} · punctele sau ABP s-au miscat din nou dupa ${state.inactive_hours} ore · ${state.points.toLocaleString()} pct`);
       } else if (state.inactive_hours === 6) {
-        let msg = `😴 **${state.name}** ${allyName} · no points or ABP movement for 6 hours · ${state.points.toLocaleString()} pts`;
-        if (state.dbp_diff > 0) msg += ' · DBP rising while they stand still';
-        alerts.push(msg);
+        alerts.push(`😴 **${state.name}** ${allyName} · fara miscare de puncte sau ABP de 6 ore · ${state.points.toLocaleString()} pct`);
       }
     }
   }
+
 
   if (alerts.length && process.env.DISCORD_WEBHOOK_URL) {
     let chunk = '';
@@ -143,9 +145,10 @@ async function run() {
   }
 
   await db.end();
+  console.log(`Sincronizare finalizata cu succes! Jucatori procesati: ${playersRaw.length}`);
 }
 
 run().catch(err => {
-  console.error('Eroare execuție:', err);
+  console.error('Eroare executie:', err);
   process.exit(1);
 });
