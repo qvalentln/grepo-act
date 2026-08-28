@@ -14,14 +14,20 @@ async function fetchGrepoData(url) {
 
 async function run() {
   const worldId = process.env.GREPO_WORLD;
+  if (!worldId) {
+    throw new Error('GREPO_WORLD lipsește din .env');
+  }
+
   const baseUrl = `https://${worldId}.grepolis.com/data`;
 
+  console.log(`Preluare date pentru lumea: ${worldId}...`);
   const [playersRaw, attRaw, defRaw, allyRaw] = await Promise.all([
     fetchGrepoData(`${baseUrl}/players.txt.gz`),
     fetchGrepoData(`${baseUrl}/player_kills_att.txt.gz`),
     fetchGrepoData(`${baseUrl}/player_kills_def.txt.gz`),
     fetchGrepoData(`${baseUrl}/alliances.txt.gz`)
   ]);
+
 
   const alliances = new Map();
   const allyQuery = `
@@ -30,22 +36,27 @@ async function run() {
     ON CONFLICT (alliance_id) DO UPDATE SET name = EXCLUDED.name;
   `;
 
-  for (const row of allyRaw) {
-    const allianceId = parseInt(row[0], 10);
-    const allianceName = decodeURIComponent(row[1].replace(/\+/g, ' '));
-    alliances.set(allianceId, allianceName);
-    await db.query(allyQuery, [allianceId, allianceName]);
-  }
+  await Promise.all(
+    allyRaw.map(async (row) => {
+      const allianceId = parseInt(row[0], 10);
+      const allianceName = decodeURIComponent((row[1] || '').replace(/\+/g, ' '));
+      if (!isNaN(allianceId)) {
+        alliances.set(allianceId, allianceName);
+        return db.query(allyQuery, [allianceId, allianceName]);
+      }
+    })
+  );
 
   const abpMap = new Map(attRaw.map(a => [parseInt(a[1], 10), parseInt(a[2], 10) || 0]));
   const dbpMap = new Map(defRaw.map(d => [parseInt(d[1], 10), parseInt(d[2], 10) || 0]));
 
   const playerQuery = `
-    INSERT INTO players (player_id, name, alliance_id, points, abp, dbp, inactive_hours, was_inactive, last_updated)
-    VALUES ($1, $2, $3, $4, $5, $6, 0, FALSE, NOW())
+    INSERT INTO players (player_id, name, alliance_id, alliance_name, points, abp, dbp, inactive_hours, was_inactive, last_updated)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, 0, FALSE, NOW())
     ON CONFLICT (player_id) DO UPDATE SET
         name = EXCLUDED.name,
         alliance_id = EXCLUDED.alliance_id,
+        alliance_name = EXCLUDED.alliance_name,
         inactive_hours = CASE 
             WHEN players.points = EXCLUDED.points AND players.abp = EXCLUDED.abp THEN players.inactive_hours + 1
             ELSE 0 
@@ -58,7 +69,15 @@ async function run() {
         abp = EXCLUDED.abp,
         dbp = EXCLUDED.dbp,
         last_updated = NOW()
-    RETURNING player_id, name, alliance_id, points, inactive_hours, was_inactive, (dbp - players.dbp) AS dbp_diff;
+    RETURNING 
+        player_id, 
+        name, 
+        alliance_id, 
+        alliance_name, 
+        points, 
+        inactive_hours, 
+        was_inactive, 
+        (EXCLUDED.dbp - players.dbp) AS dbp_diff;
   `;
 
   const alerts = [];
@@ -69,19 +88,33 @@ async function run() {
     const results = await Promise.all(
       batch.map(async (row) => {
         const playerId = parseInt(row[0], 10);
-        const name = decodeURIComponent(row[1].replace(/\+/g, ' '));
-        const allianceId = row[2] ? parseInt(row[2], 10) : null;
+        const name = decodeURIComponent((row[1] || '').replace(/\+/g, ' '));
+        const rawAlly = parseInt(row[2], 10);
+        const allianceId = isNaN(rawAlly) || rawAlly === 0 ? null : rawAlly;
+        const allianceName = allianceId ? (alliances.get(allianceId) || null) : null;
         const points = parseInt(row[3], 10) || 0;
         const abp = abpMap.get(playerId) || 0;
         const dbp = dbpMap.get(playerId) || 0;
 
-        const res = await db.query(playerQuery, [playerId, name, allianceId, points, abp, dbp]);
+        if (isNaN(playerId)) return null;
+
+        const res = await db.query(playerQuery, [
+          playerId,
+          name,
+          allianceId,
+          allianceName,
+          points,
+          abp,
+          dbp
+        ]);
         return res.rows[0];
       })
     );
 
     for (const state of results) {
-      const allyName = alliances.get(state.alliance_id) ? `(${alliances.get(state.alliance_id)})` : '';
+      if (!state) continue;
+      const allyName = state.alliance_name ? `(${state.alliance_name})` : '';
+
       if (state.was_inactive) {
         alerts.push(`⏰ **${state.name}** ${allyName} · points or ABP moving again after ${state.inactive_hours} hours · ${state.points.toLocaleString()} pts`);
       } else if (state.inactive_hours === 6) {
@@ -92,7 +125,6 @@ async function run() {
     }
   }
 
-  // Post via Discord Webhook
   if (alerts.length && process.env.DISCORD_WEBHOOK_URL) {
     let chunk = '';
     for (const alert of alerts) {
@@ -111,6 +143,6 @@ async function run() {
 }
 
 run().catch(err => {
-  console.error(err);
+  console.error('Eroare execuție:', err);
   process.exit(1);
 });
