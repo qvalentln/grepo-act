@@ -57,32 +57,40 @@ async function run() {
   const dbpMap = new Map(defRaw.map(d => [parseInt(d[1], 10), parseInt(d[2], 10) || 0]));
 
   
-  const playerQuery = `
-    INSERT INTO players (player_id, name, alliance_id, alliance_name, points, abp, dbp, inactive_hours, was_inactive, last_updated)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, 0, FALSE, NOW())
+ const playerQuery = `
+    INSERT INTO players (player_id, name, alliance_id, alliance_name, points, abp, dbp, inactive_hours, previous_inactive_hours, was_inactive, last_updated)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, 0, 0, FALSE, NOW())
     ON CONFLICT (player_id) DO UPDATE SET
         name = EXCLUDED.name,
         alliance_id = EXCLUDED.alliance_id,
         alliance_name = EXCLUDED.alliance_name,
+        
+        
+        previous_inactive_hours = players.inactive_hours,
+
+        
         inactive_hours = CASE 
             WHEN players.points = EXCLUDED.points AND players.abp = EXCLUDED.abp THEN players.inactive_hours + 1
             ELSE 0 
         END,
-        was_inactive = CASE
+
+        
+        was_inactive = CASE 
             WHEN (players.points != EXCLUDED.points OR players.abp != EXCLUDED.abp) AND players.inactive_hours >= 6 THEN TRUE
             ELSE FALSE
         END,
+
         points = EXCLUDED.points,
         abp = EXCLUDED.abp,
         dbp = EXCLUDED.dbp,
         last_updated = NOW()
-   RETURNING 
+    RETURNING 
         player_id, 
         name, 
         alliance_id, 
         alliance_name, 
         points, 
-        players.inactive_hours AS previous_inactive_hours,
+        previous_inactive_hours,
         inactive_hours, 
         was_inactive;
   `;
@@ -122,9 +130,10 @@ async function run() {
       if (!state) continue;
       const allyName = state.alliance_name ? `(${state.alliance_name})` : '';
 
-      if (state.was_inactive) {
+     if (state.was_inactive) {
         alerts.push(`⏰ **${state.name}** ${allyName} · punctele sau ABP s-au miscat, a inviat mortaciunea dupa ${state.previous_inactive_hours} ore · ${state.points.toLocaleString()} pct`);
-      } else if (state.inactive_hours === 12) {
+    }
+     else if (state.inactive_hours === 12) {
         alerts.push(`🫓 **${state.name}** ${allyName} · fara miscare de puncte sau ABP de 12 ore, chifla · ${state.points.toLocaleString()} pct`);
       }
       else if(state.inactive_hours === 6) {
