@@ -76,12 +76,13 @@ async function run() {
         abp = EXCLUDED.abp,
         dbp = EXCLUDED.dbp,
         last_updated = NOW()
-    RETURNING 
+   RETURNING 
         player_id, 
         name, 
         alliance_id, 
         alliance_name, 
         points, 
+        players.inactive_hours AS previous_inactive_hours,
         inactive_hours, 
         was_inactive;
   `;
@@ -122,12 +123,12 @@ async function run() {
       const allyName = state.alliance_name ? `(${state.alliance_name})` : '';
 
       if (state.was_inactive) {
-        alerts.push(`⏰ **${state.name}** ${allyName} · punctele sau ABP s-au miscat dupa ${state.inactive_hours} ore de inactivitate · ${state.points.toLocaleString()} pct`);
-      } else if (state.inactive_hours >= 12) {
-        alerts.push(`😴 **${state.name}** ${allyName} · fara miscare de puncte sau ABP de mai bine de 12 ore · ${state.points.toLocaleString()} pct`);
+        alerts.push(`⏰ **${state.name}** ${allyName} · punctele sau ABP s-au miscat, a inviat mortaciunea dupa ${state.previous_inactive_hours} ore · ${state.points.toLocaleString()} pct`);
+      } else if (state.inactive_hours === 12) {
+        alerts.push(`🫓 **${state.name}** ${allyName} · fara miscare de puncte sau ABP de 12 ore, chifla · ${state.points.toLocaleString()} pct`);
       }
       else if(state.inactive_hours === 6) {
-         alerts.push(`😴 **${state.name}** ${allyName} · fara miscare de puncte sau ABP de mai bine de 6 ore, posibil inactiv · ${state.points.toLocaleString()} pct`);
+         alerts.push(`🛌 **${state.name}** ${allyName} · fara miscare de puncte sau ABP de 6 ore, posibil dormeza · ${state.points.toLocaleString()} pct`);
       }
     }
   }
