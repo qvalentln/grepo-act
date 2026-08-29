@@ -128,7 +128,7 @@ async function run() {
         alerts.push(`🫓 **${state.name}** ${allyName} · fara miscare de puncte sau ABP de 12 ore, chifla · ${state.points.toLocaleString()} pct`);
       }
       else if(state.inactive_hours === 6) {
-         alerts.push(`🛌 **${state.name}** ${allyName} · fara miscare de puncte sau ABP de 6 ore, posibil dormeza · ${state.points.toLocaleString()} pct`);
+         alerts.push(`🛌 **${state.name}** ${allyName} · fara miscare de puncte sau ABP de 6 ore, dormeza de lux · ${state.points.toLocaleString()} pct`);
       }
     }
   }
