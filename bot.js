@@ -58,42 +58,36 @@ async function run() {
 
   
  const playerQuery = `
-    INSERT INTO players (player_id, name, alliance_id, alliance_name, points, abp, dbp, inactive_hours, previous_inactive_hours, was_inactive, last_updated)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, 0, 0, FALSE, NOW())
-    ON CONFLICT (player_id) DO UPDATE SET
-        name = EXCLUDED.name,
-        alliance_id = EXCLUDED.alliance_id,
-        alliance_name = EXCLUDED.alliance_name,
-        
-        
-        previous_inactive_hours = players.inactive_hours,
-
-        
-        inactive_hours = CASE 
-            WHEN players.points = EXCLUDED.points AND players.abp = EXCLUDED.abp THEN players.inactive_hours + 1
-            ELSE 0 
-        END,
-
-        
-        was_inactive = CASE 
-            WHEN (players.points != EXCLUDED.points OR players.abp != EXCLUDED.abp) AND players.inactive_hours >= 6 THEN TRUE
-            ELSE FALSE
-        END,
-
-        points = EXCLUDED.points,
-        abp = EXCLUDED.abp,
-        dbp = EXCLUDED.dbp,
-        last_updated = NOW()
-    RETURNING 
-        player_id, 
-        name, 
-        alliance_id, 
-        alliance_name, 
-        points, 
-        previous_inactive_hours,
-        inactive_hours, 
-        was_inactive;
-  `;
+  INSERT INTO players (player_id, name, alliance_id, alliance_name, points, abp, dbp, inactive_hours, previous_inactive_hours, was_inactive, last_updated)
+  VALUES ($1, $2, $3, $4, $5, $6, $7, 0, 0, FALSE, NOW())
+  ON CONFLICT (player_id) DO UPDATE SET
+      name = EXCLUDED.name,
+      alliance_id = EXCLUDED.alliance_id,
+      alliance_name = EXCLUDED.alliance_name,
+      previous_inactive_hours = players.inactive_hours,
+      inactive_hours = CASE 
+          WHEN players.points = EXCLUDED.points AND players.abp = EXCLUDED.abp THEN players.inactive_hours + 1
+          ELSE 0 
+      END,
+      was_inactive = CASE 
+          WHEN (players.points != EXCLUDED.points OR players.abp != EXCLUDED.abp) AND players.inactive_hours >= 6 THEN TRUE
+          ELSE FALSE
+      END,
+      points = EXCLUDED.points,
+      abp = EXCLUDED.abp,
+      dbp = EXCLUDED.dbp,
+      last_updated = NOW()
+  RETURNING 
+      player_id, 
+      name, 
+      alliance_id, 
+      alliance_name, 
+      points, 
+      previous_inactive_hours,
+      inactive_hours, 
+      was_inactive,
+      (EXCLUDED.dbp - players.dbp) AS dbp_diff;
+`;
 
   const alerts = [];
   const BATCH_SIZE = 50;
@@ -133,14 +127,17 @@ async function run() {
      if (state.was_inactive) {
         alerts.push(`⏰ **${state.name}** ${allyName} · punctele sau ABP s-au miscat, a inviat mortaciunea dupa ${state.previous_inactive_hours} ore · ${state.points.toLocaleString()} pct`);
     }
+
+
+     if(state.dbp_diff > 0) alerts.push(`🛡️ **${state.name}** ${allyName} · primește atacuri (+${state.dbp_diff.toLocaleString()} DBP) în timp ce este inactiv de ${state.inactive_hours} ore · ${state.points.toLocaleString()} pct`);
      else if (state.inactive_hours === 12) {
-        alerts.push(`🫓 **${state.name}** ${allyName} · fara miscare de puncte sau ABP de 12 ore, chifla · ${state.points.toLocaleString()} pct`);
-      }
-      else if(state.inactive_hours === 6) {
-         alerts.push(`🛌 **${state.name}** ${allyName} · fara miscare de puncte sau ABP de 6 ore, dormeza de lux · ${state.points.toLocaleString()} pct`);
-      }
+       alerts.push(`🫓 **${state.name}** ${allyName} · fara miscare de puncte sau ABP de 12 ore, chifla · ${state.points.toLocaleString()} pct`);
+    }
+      else if(state.inactive_hours === 6) {        
+       alerts.push(`🛌 **${state.name}** ${allyName} · fara miscare de puncte sau ABP de 6 ore, dormeza de lux · ${state.points.toLocaleString()} pct`);
     }
   }
+}
 
 
   if (alerts.length && process.env.DISCORD_WEBHOOK_URL) {
