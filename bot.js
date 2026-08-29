@@ -122,9 +122,9 @@ async function run() {
       const allyName = state.alliance_name ? `(${state.alliance_name})` : '';
 
       if (state.was_inactive) {
-        alerts.push(`⏰ **${state.name}** ${allyName} · punctele sau ABP s-au miscat din nou dupa ${state.inactive_hours} ore · ${state.points.toLocaleString()} pct`);
+        alerts.push(`⏰ **${state.name}** ${allyName} · punctele sau ABP s-au miscat... · ${state.points.toLocaleString()} pct`);
       } else if (state.inactive_hours === 6) {
-        alerts.push(`😴 **${state.name}** ${allyName} · fara miscare de puncte sau ABP de 6 ore · ${state.points.toLocaleString()} pct`);
+        alerts.push(`😴 **${state.name}** ${allyName} · fara miscare de puncte sau ABP de 6 ore, posibil inactiv · ${state.points.toLocaleString()} pct`);
       }
     }
   }
