@@ -130,7 +130,8 @@ async function run() {
     }
 
 
-     if(state.dbp_diff > 0) alerts.push(`🛡️ **${state.name}** ${allyName} · primește atacuri (+${state.dbp_diff.toLocaleString()} DBP) în timp ce este inactiv de ${state.inactive_hours} ore · ${state.points.toLocaleString()} pct`);
+     if(state.dbp_diff > 0 && ['United', 'United I', 'United II'].includes(state.alliance_name)) 
+       alerts.push(`🛡️ **${state.name}** ${allyName} · primește atacuri (+${state.dbp_diff.toLocaleString()} DBP) în timp ce este inactiv de ${state.inactive_hours} ore · ${state.points.toLocaleString()} pct`);
      else if (state.inactive_hours === 12) {
        alerts.push(`🫓 **${state.name}** ${allyName} · fara miscare de puncte sau ABP de 12 ore, chifla · ${state.points.toLocaleString()} pct`);
     }
